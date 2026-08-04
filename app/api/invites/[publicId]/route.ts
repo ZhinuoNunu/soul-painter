@@ -13,6 +13,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
   const work = await findPublicWork(publicId);
   if (!work || !work.allowScribbles) return NextResponse.json({ error: "这张作品暂不接受涂鸦。" }, { status: 404 });
   const response = NextResponse.json({ doodleUrl: `/p/${publicId}/doodle` });
-  response.cookies.set({ name: "soul_painter_invite", value: publicId, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/p", maxAge: 60 * 60 * 24 });
+  response.cookies.set({ name: "soul_painter_invite", value: publicId, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 });
   return response;
 }

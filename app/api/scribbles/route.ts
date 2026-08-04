@@ -21,19 +21,25 @@ export async function POST(request: Request) {
     assertScribblesEnabled();
     const form = await request.formData();
     const targetPublicId = form.get("targetPublicId");
-    const inviteToken = form.get("inviteToken");
-    if (typeof targetPublicId !== "string" || !targetPublicId || typeof inviteToken !== "string" || !inviteToken) {
+    if (typeof targetPublicId !== "string" || !targetPublicId) {
       return NextResponse.json({ error: "只能通过有效邀请添加涂鸦。" }, { status: 403 });
     }
+
+    const cookieStore = await cookies();
+    if (cookieStore.get("soul_painter_invite")?.value !== targetPublicId) {
+      return NextResponse.json({ error: "只能通过有效邀请添加涂鸦。" }, { status: 403 });
+    }
+
     const target = await findReplyTarget(targetPublicId);
     if (!target || !target.allowScribbles) return NextResponse.json({ error: "这张作品暂不接受涂鸦。" }, { status: 404 });
-    const cookieStore = await cookies();
+
     let subjectToken = cookieStore.get(subjectCookieName())?.value;
     if (!subjectToken) subjectToken = createAnonymousSubjectToken();
     const subjectHash = hashAnonymousSubject(subjectToken);
     const validated = await validateCreateForm(form);
     const existing = await findScribbleByIdempotency(targetPublicId, subjectHash, validated.idempotencyKey);
     if (existing) return NextResponse.json(existing, { status: 200 });
+
     await assertWithinScribbleRateLimit(subjectHash, clientIp(request), targetPublicId);
     await ensureAnonymousSubject(subjectHash);
     const objectKey = `scribbles/${target.id}/${randomUUID()}.png`;

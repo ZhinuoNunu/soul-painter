@@ -20,7 +20,7 @@ export function DrawingCanvas({ mode = "create", targetPublicId, inviteToken, ba
     try {
       const form = new FormData(); form.set("image", new File([image], mode === "create" ? "soul-painter.png" : "doodle.png", { type: "image/png" })); form.set("idempotencyKey", keyRef.current);
       let url = "/api/user/create";
-      if (mode === "scribble") { url = "/api/scribbles"; form.set("targetPublicId", targetPublicId ?? ""); form.set("inviteToken", inviteToken ?? ""); }
+      if (mode === "scribble") { url = "/api/scribbles"; form.set("targetPublicId", targetPublicId ?? ""); }
       const response = await fetch(url, { method: "POST", body: form, credentials: "same-origin" }); const payload = await response.json() as (CreateResponse & { error?: string });
       if (!response.ok) throw new Error(payload.error ?? "保存失败，请稍后重试。");
       router.push(mode === "create" ? `/p/${payload.publicId}` : `/p/${targetPublicId}`);
