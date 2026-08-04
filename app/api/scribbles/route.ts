@@ -6,6 +6,7 @@ import { createAnonymousSubjectToken, hashAnonymousSubject, setSubjectCookie, su
 import { ensureAnonymousSubject, findReplyTarget, findScribbleByIdempotency, insertVisibleScribble } from "@/lib/db";
 import { assertScribblesEnabled, assertWithinScribbleRateLimit, clientIp } from "@/lib/rate-limit";
 import { deleteObject, uploadScribbleImage } from "@/lib/storage";
+import { rebuildWorkComposite } from "@/lib/composite";
 import { ValidationError, validateCreateForm } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
     const upload = await uploadScribbleImage(objectKey, validated.buffer);
     try {
       const scribble = await insertVisibleScribble({ targetWorkId: target.id, subjectHash, objectKey, imageUrl: upload.url, idempotencyKey: validated.idempotencyKey });
+      await rebuildWorkComposite(targetPublicId);
       const response = NextResponse.json(scribble, { status: 201 });
       if (!cookieStore.get(subjectCookieName())) setSubjectCookie(response, subjectToken);
       return response;

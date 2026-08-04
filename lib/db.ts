@@ -21,8 +21,8 @@ export async function findWorkByIdempotencyKey(idempotencyKey: string) {
 
 export async function insertReadyWork(work: { publicId: string; ownerSessionHash: string; idempotencyKey: string; objectKey: string; imageUrl: string }) {
   const { rows } = await sql<CreatedWork>`
-    INSERT INTO works (public_id, owner_session_hash, idempotency_key, status, original_object_key, share_image_object_key, share_image_url, shared_at)
-    VALUES (${work.publicId}, ${work.ownerSessionHash}, ${work.idempotencyKey}, 'ready', ${work.objectKey}, ${work.objectKey}, ${work.imageUrl}, NOW())
+    INSERT INTO works (public_id, owner_session_hash, idempotency_key, status, original_object_key, original_object_url, share_image_object_key, share_image_url, shared_at)
+    VALUES (${work.publicId}, ${work.ownerSessionHash}, ${work.idempotencyKey}, 'ready', ${work.objectKey}, ${work.imageUrl}, ${work.objectKey}, ${work.imageUrl}, NOW())
     RETURNING public_id AS "publicId", share_image_url AS "imageUrl", created_at::text AS "createdAt", allow_scribbles AS "allowScribbles", owner_session_hash AS "ownerSessionHash"`;
   return rows[0];
 }
@@ -35,6 +35,15 @@ export async function findPublicWork(publicId: string): Promise<PublicWork | nul
   if (!work) return null;
   const scribbles = await findVisibleScribbles(publicId);
   return { ...work, scribbles };
+}
+
+export async function findCompositeSource(targetPublicId: string) {
+  const { rows } = await sql<{ originalUrl: string; scribbleUrls: string[] }>`
+    SELECT w.original_object_url AS "originalUrl", COALESCE(array_agg(s.image_url ORDER BY s.created_at) FILTER (WHERE s.status = 'visible'), ARRAY[]::text[]) AS "scribbleUrls"
+    FROM works w LEFT JOIN scribbles s ON s.target_work_id = w.id
+    WHERE w.public_id = ${targetPublicId} AND w.status = 'ready' AND w.deleted_at IS NULL
+    GROUP BY w.id, w.original_object_url LIMIT 1`;
+  return rows[0] ?? null;
 }
 
 export async function findReplyTarget(publicId: string): Promise<TargetWork | null> {

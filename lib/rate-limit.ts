@@ -39,7 +39,7 @@ export function assertScribblesEnabled() {
 }
 
 export function assertWithinCreateRateLimit(ip: string) {
-  return assertWithinLimit("create", ip, "CREATE_RATE_LIMIT_PER_WINDOW", "CREATE_RATE_LIMIT_WINDOW_SECONDS", 3);
+  return assertWithinLimit("create", ip, "CREATE_RATE_LIMIT_PER_WINDOW", "CREATE_RATE_LIMIT_WINDOW_SECONDS", 20);
 }
 
 export async function assertWithinScribbleRateLimit(subjectHash: string, ip: string, targetPublicId: string) {
