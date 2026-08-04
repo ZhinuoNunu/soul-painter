@@ -35,7 +35,23 @@ h1 { max-width: 16ch; margin: 0; font-size: clamp(2.6rem, 8vw, 5.8rem); line-hei
 .microcopy { color: #65708a; font-size: .85rem; margin-top: 1.5rem; }
 
 .create-page { padding-top: 2rem; }
-.creator { display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: end; }
+.drawing-tools { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: center; }
+.drawing-tools > div { display: flex; align-items: center; gap: .5rem; }
+.drawing-tools span { color: #65708a; font-size: .8rem; margin-right: .25rem; }
+.color-swatch { width: 2rem; height: 2rem; padding: 0; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+.color-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
+.size-button { min-width: 2.8rem; border: 1px solid var(--line); border-radius: 999px; padding: .35rem .6rem; background: white; color: var(--ink); cursor: pointer; }
+.size-button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: white; }
+.canvas-stack { position: relative; grid-column: 1 / -1; width: 100%; max-width: 768px; aspect-ratio: 1; }
+.canvas-stack .drawing-canvas { position: relative; z-index: 1; }
+.canvas-base { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: contain; border: 3px solid var(--ink); border-radius: 1rem; }
+.canvas-stack.with-base .drawing-canvas { background: transparent; }
+.reply-button { margin-top: 1rem; }
+.scribble-list { width: min(100%, 620px); margin: 2rem auto 0; text-align: left; }
+.scribble-list h2 { font-size: 1.3rem; }
+.scribble-item { display: grid; grid-template-columns: 5rem 1fr; gap: 1rem; align-items: center; padding: .75rem 0; border-top: 1px solid var(--line); }
+.scribble-item img { width: 5rem; height: 5rem; object-fit: contain; border: 1px solid var(--line); border-radius: .5rem; background: #fffdf7; }
+.scribble-item p { margin: 0; color: #65708a; font-size: .85rem; }
 .creator-header { grid-column: 1; }
 .creator-header h1 { font-size: clamp(2.1rem, 5vw, 4rem); }
 .creator-header p:not(.eyebrow) { margin: 1rem 0 0; }

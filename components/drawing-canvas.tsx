@@ -3,173 +3,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type CreateResponse = {
-  publicId: string;
-  shareUrl: string;
-  inviteUrl: string;
-};
+type Props = { mode?: "create" | "scribble"; targetPublicId?: string; inviteToken?: string; baseImageUrl?: string };
+type CreateResponse = { publicId: string; shareUrl: string; inviteUrl: string };
+const SIZE = 768, DURATION = 30;
+const COLORS = [{ label: "深蓝", value: "#16213d" }, { label: "珊瑚红", value: "#f77f63" }, { label: "向日黄", value: "#e8a51d" }, { label: "森林绿", value: "#397a59" }, { label: "葡萄紫", value: "#7853a6" }];
+const SIZES = [{ label: "细", value: 7 }, { label: "中", value: 13 }, { label: "粗", value: 21 }];
 
-const CANVAS_SIZE = 768;
-const DURATION_SECONDS = 30;
-
-export function DrawingCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawingRef = useRef(false);
-  const startedRef = useRef(false);
-  const finishedImageRef = useRef<Blob | null>(null);
-  const idempotencyKeyRef = useRef<string | null>(null);
+export function DrawingCanvas({ mode = "create", targetPublicId, inviteToken, baseImageUrl }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null), drawingRef = useRef(false), startedRef = useRef(false), finishedRef = useRef<Blob | null>(null), keyRef = useRef<string | null>(null);
   const router = useRouter();
-  const [secondsLeft, setSecondsLeft] = useState(DURATION_SECONDS);
-  const [phase, setPhase] = useState<"ready" | "drawing" | "saving" | "error">("ready");
-  const [error, setError] = useState("");
+  const [seconds, setSeconds] = useState(DURATION), [phase, setPhase] = useState<"ready" | "drawing" | "saving" | "error">("ready"), [color, setColor] = useState(COLORS[0].value), [size, setSize] = useState(SIZES[1].value), [error, setError] = useState("");
 
-  const setupCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    canvas.width = CANVAS_SIZE;
-    canvas.height = CANVAS_SIZE;
-    context.fillStyle = "#fffdf7";
-    context.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    context.strokeStyle = "#16213d";
-    context.lineWidth = 13;
-    context.lineCap = "round";
-    context.lineJoin = "round";
-  }, []);
-
-  useEffect(() => {
-    setupCanvas();
-  }, [setupCanvas]);
-
+  useEffect(() => { const canvas = canvasRef.current, context = canvas?.getContext("2d"); if (!canvas || !context) return; canvas.width = SIZE; canvas.height = SIZE; if (mode === "create") { context.fillStyle = "#fffdf7"; context.fillRect(0, 0, SIZE, SIZE); } context.lineCap = "round"; context.lineJoin = "round"; }, [mode]);
   const save = useCallback(async (image: Blob) => {
-    setPhase("saving");
-    setError("");
-    idempotencyKeyRef.current ??= crypto.randomUUID();
-
+    setPhase("saving"); setError(""); keyRef.current ??= crypto.randomUUID();
     try {
-      const formData = new FormData();
-      formData.set("image", new File([image], "soul-painter.png", { type: "image/png" }));
-      formData.set("idempotencyKey", idempotencyKeyRef.current);
-      const response = await fetch("/api/user/create", {
-        method: "POST",
-        body: formData,
-        credentials: "same-origin",
-      });
-      const payload = (await response.json()) as CreateResponse & { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "保存画作失败，请稍后重试。");
-
-      router.push(`/p/${payload.publicId}?invite=${encodeURIComponent(payload.inviteUrl)}`);
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "保存画作失败，请稍后重试。");
-      setPhase("error");
-    }
-  }, [router]);
-
-  const finish = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || finishedImageRef.current) return;
-    drawingRef.current = false;
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        setError("无法生成画作，请重试。");
-        setPhase("error");
-        return;
-      }
-      finishedImageRef.current = blob;
-      void save(blob);
-    }, "image/png");
-  }, [save]);
-
-  useEffect(() => {
-    if (phase !== "drawing") return;
-    if (secondsLeft === 0) {
-      finish();
-      return;
-    }
-    const timer = window.setTimeout(() => setSecondsLeft((seconds) => seconds - 1), 1000);
-    return () => window.clearTimeout(timer);
-  }, [finish, phase, secondsLeft]);
-
-  const pointFor = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current!;
-    const bounds = canvas.getBoundingClientRect();
-    return {
-      x: ((event.clientX - bounds.left) / bounds.width) * CANVAS_SIZE,
-      y: ((event.clientY - bounds.top) / bounds.height) * CANVAS_SIZE,
-    };
-  };
-
-  const beginStroke = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (phase === "saving" || secondsLeft === 0) return;
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
-
-    if (!startedRef.current) {
-      startedRef.current = true;
-      setPhase("drawing");
-    }
-    const point = pointFor(event);
-    drawingRef.current = true;
-    canvas.setPointerCapture(event.pointerId);
-    context.beginPath();
-    context.moveTo(point.x, point.y);
-  };
-
-  const draw = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawingRef.current || phase === "saving" || secondsLeft === 0) return;
-    const context = canvasRef.current?.getContext("2d");
-    if (!context) return;
-    const point = pointFor(event);
-    context.lineTo(point.x, point.y);
-    context.stroke();
-  };
-
-  const endStroke = () => {
-    drawingRef.current = false;
-  };
-
-  const retrySave = () => {
-    if (finishedImageRef.current) void save(finishedImageRef.current);
-  };
-
-  return (
-    <section className="creator">
-      <div className="creator-header">
-        <p className="eyebrow">灵魂画友 · 第一张画</p>
-        <h1>{phase === "ready" ? "落下第一笔，30 秒开始。" : "把你的灵魂画完。"}</h1>
-        <p>不用画得好看，只要是你画的。</p>
-      </div>
-
-      <div className="timer" aria-live="polite">
-        <span>剩余时间</span>
-        <strong>{String(secondsLeft).padStart(2, "0")}</strong>
-      </div>
-
-      <canvas
-        ref={canvasRef}
-        className="drawing-canvas"
-        aria-label="30 秒绘画画布"
-        onPointerDown={beginStroke}
-        onPointerMove={draw}
-        onPointerUp={endStroke}
-        onPointerCancel={endStroke}
-        onPointerLeave={endStroke}
-      />
-
-      <p className="canvas-note">
-        {phase === "ready" && "手指、触控笔或鼠标都可以。"}
-        {phase === "drawing" && "时间到后会自动保存并生成分享链接。"}
-        {phase === "saving" && "正在把你的画存进小宇宙…"}
-        {phase === "error" && error}
-      </p>
-      {phase === "error" && (
-        <button className="button" type="button" onClick={retrySave}>
-          再试一次保存
-        </button>
-      )}
-    </section>
-  );
+      const form = new FormData(); form.set("image", new File([image], mode === "create" ? "soul-painter.png" : "doodle.png", { type: "image/png" })); form.set("idempotencyKey", keyRef.current);
+      let url = "/api/user/create";
+      if (mode === "scribble") { url = "/api/scribbles"; form.set("targetPublicId", targetPublicId ?? ""); form.set("inviteToken", inviteToken ?? ""); }
+      const response = await fetch(url, { method: "POST", body: form, credentials: "same-origin" }); const payload = await response.json() as (CreateResponse & { error?: string });
+      if (!response.ok) throw new Error(payload.error ?? "保存失败，请稍后重试。");
+      router.push(mode === "create" ? `/p/${payload.publicId}` : `/p/${targetPublicId}`);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，请稍后重试。"); setPhase("error"); }
+  }, [inviteToken, mode, router, targetPublicId]);
+  const finish = useCallback(() => { const canvas = canvasRef.current; if (!canvas || !startedRef.current || finishedRef.current || phase === "saving") return; drawingRef.current = false; setSeconds(0); canvas.toBlob((blob) => { if (!blob) { setError("无法生成画作，请重试。"); setPhase("error"); return; } finishedRef.current = blob; void save(blob); }, "image/png"); }, [phase, save]);
+  useEffect(() => { if (phase !== "drawing") return; if (seconds === 0) { finish(); return; } const id = window.setTimeout(() => setSeconds((value) => value - 1), 1000); return () => window.clearTimeout(id); }, [finish, phase, seconds]);
+  const point = (event: React.PointerEvent<HTMLCanvasElement>) => { const box = canvasRef.current!.getBoundingClientRect(); return { x: (event.clientX - box.left) / box.width * SIZE, y: (event.clientY - box.top) / box.height * SIZE }; };
+  const start = (event: React.PointerEvent<HTMLCanvasElement>) => { if (phase === "saving" || seconds === 0) return; const canvas = canvasRef.current, context = canvas?.getContext("2d"); if (!canvas || !context) return; if (!startedRef.current) { startedRef.current = true; setPhase("drawing"); } const position = point(event); drawingRef.current = true; canvas.setPointerCapture(event.pointerId); context.strokeStyle = color; context.lineWidth = size; context.beginPath(); context.moveTo(position.x, position.y); };
+  const draw = (event: React.PointerEvent<HTMLCanvasElement>) => { if (!drawingRef.current || phase === "saving" || seconds === 0) return; const context = canvasRef.current?.getContext("2d"); if (!context) return; const position = point(event); context.lineTo(position.x, position.y); context.stroke(); };
+  return <section className="creator"><div className="creator-header"><p className="eyebrow">灵魂画友 · {mode === "create" ? "第一张画" : "接着画"}</p><h1>{phase === "ready" ? "落下第一笔，30 秒开始。" : "把这一笔画完。"}</h1><p>{mode === "create" ? "不用画得好看，只要是你画的。" : "原画不会改变，你的涂鸦会作为独立回复保存。"}</p></div><div className="timer" aria-live="polite"><span>剩余时间</span><strong>{String(seconds).padStart(2, "0")}</strong></div><div className="drawing-tools"><div><span>颜色</span>{COLORS.map((item) => <button key={item.value} type="button" className="color-swatch" style={{ backgroundColor: item.value }} aria-label={item.label} aria-pressed={color === item.value} onClick={() => setColor(item.value)} />)}</div><div><span>粗细</span>{SIZES.map((item) => <button key={item.value} type="button" className="size-button" aria-pressed={size === item.value} onClick={() => setSize(item.value)}>{item.label}</button>)}</div></div><div className={`canvas-stack ${mode === "scribble" ? "with-base" : ""}`}>{baseImageUrl && <img src={baseImageUrl} alt="作为底图的原画" className="canvas-base" />}{/* Overlay keeps the original immutable and avoids cross-origin canvas export issues. */}<canvas ref={canvasRef} className="drawing-canvas" aria-label="30 秒绘画画布" onPointerDown={start} onPointerMove={draw} onPointerUp={() => { drawingRef.current = false; }} onPointerCancel={() => { drawingRef.current = false; }} onPointerLeave={() => { drawingRef.current = false; }} /></div><p className="canvas-note">{phase === "ready" && "手指、触控笔或鼠标都可以。"}{phase === "drawing" && "时间到后会自动保存；也可以提前完成。"}{phase === "saving" && "正在保存…"}{phase === "error" && error}</p>{phase === "drawing" && <button className="button" type="button" onClick={finish}>完成绘画</button>}{phase === "error" && <button className="button" type="button" onClick={() => finishedRef.current && void save(finishedRef.current)}>再试一次保存</button>}</section>;
 }
