@@ -26,10 +26,10 @@ export function ShareActions({ shareUrl, inviteUrl }: ShareActionsProps) {
   return (
     <div className="share-actions">
       <button className="button" type="button" onClick={() => void share()}>
-        分享这张画
+        分享一下，只给看，不给改
       </button>
       <button className="button button-secondary" type="button" onClick={() => void copy(inviteUrl, "invite")}>
-        {copied === "invite" ? "邀请链接已复制" : "复制邀请链接"}
+        {copied === "invite" ? "邀请链接已复制" : "允许好友乱涂乱画，概率获得超级装饰"}
       </button>
       {copied === "share" && <span className="microcopy">作品链接已复制。</span>}
     </div>

@@ -65,7 +65,9 @@ h1 { max-width: 16ch; margin: 0; font-size: clamp(2.6rem, 8vw, 5.8rem); line-hei
 .work-page, .invite-page { text-align: center; }
 .work-page h1, .invite-page h1 { margin-inline: auto; font-size: clamp(2.3rem, 6vw, 4.8rem); }
 .work-image { display: block; width: min(100%, 620px); margin: 2rem auto; aspect-ratio: 1; object-fit: contain; border: 3px solid var(--ink); border-radius: 1rem; background: #fffdf7; }
-.share-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; align-items: center; }
+.share-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(100%, 46rem); margin-inline: auto; gap: 1rem; align-items: stretch; }
+.share-actions .button { width: 100%; min-width: 0; justify-content: center; text-align: center; }
+.share-actions .microcopy { grid-column: 1 / -1; margin-top: 0; }
 .text-link { display: inline-block; margin-top: 2rem; color: var(--ink); font-weight: 700; }
 
 @media (max-width: 560px) {
@@ -73,6 +75,6 @@ h1 { max-width: 16ch; margin: 0; font-size: clamp(2.6rem, 8vw, 5.8rem); line-hei
   .creator { display: block; }
   .timer { margin: 1.5rem 0; text-align: left; grid-template-columns: auto auto; justify-content: start; align-items: baseline; gap: .75rem; }
   .drawing-canvas { border-radius: .65rem; box-shadow: 5px 5px 0 var(--sun); }
-  .share-actions { flex-direction: column; align-items: stretch; }
+  .share-actions { grid-template-columns: 1fr; width: 100%; }
   .share-actions .button { width: 100%; justify-content: center; }
 }
